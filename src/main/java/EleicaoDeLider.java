@@ -5,6 +5,9 @@ import org.apache.zookeeper.*;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import org.apache.zookeeper.WatchedEvent;
+import org.apache.zookeeper.Watcher;
+import org.apache.zookeeper.data.Stat;
 
 public class EleicaoDeLider {
     private static final String HOST = "localhost";
@@ -15,7 +18,7 @@ public class EleicaoDeLider {
     // cada processo que executa uma instância deste programa tem o seu
     private String nomeDoZNodeDesseProcesso;
     private ZooKeeper zooKeeper;
-
+    private static final String ZNODE_TESTE_WATCHER = "/teste_watch";
     public void fechar () throws InterruptedException{
         zooKeeper.close();
     }
@@ -34,8 +37,8 @@ public class EleicaoDeLider {
     public void elegerOLider () throws InterruptedException, KeeperException {
         //o segundo parâmetro (watch) indica que não queremos registrar um manipulador de eventos
         List <String> candidatos = zooKeeper.getChildren(NAMESPACE_ELEICAO, false);
+        System.out.println(candidatos);
         //ordena in-place: a coleção é alterada
-        Collections.sort(candidatos);
         String oMenor = candidatos.get(0);
         if (oMenor.equals(nomeDoZNodeDesseProcesso))
             System.out.printf("Me chamo %s e sou o líder", nomeDoZNodeDesseProcesso);
@@ -70,11 +73,57 @@ public class EleicaoDeLider {
         }
     }
 
+    public void registrarWatcher() {
+        try {
+            //uma instância da classe TesteWatcher
+            //seu método process será chamado quando um evento acontecer
+            TesteWatcher watcher = new TesteWatcher();
+            Stat stat = zooKeeper.exists(ZNODE_TESTE_WATCHER, watcher);
+            //ZNode existe
+            if (stat != null){
+                //cuidado, se o ZNode não tiver dados o retorno é null
+                //e o construtor da classe String lança uma NPE
+                byte [] bytes = zooKeeper.getData(ZNODE_TESTE_WATCHER, watcher, stat);
+                String dados = bytes != null ? new String(bytes) : "";
+                System.out.println("Dados: " + dados);
+                //se não existirem filhos, o resultado é uma lista vazia
+                List <String> filhos = zooKeeper.getChildren(ZNODE_TESTE_WATCHER, watcher);
+                System.out.println ("Filhos: " + filhos);
+            }
+        }
+        catch (KeeperException | InterruptedException e){
+           e.printStackTrace();
+        }
+    }
+    //classe interna
+    private class TesteWatcher implements Watcher {
+        @Override
+        public void process(WatchedEvent event) {
+            System.out.println(event);
+           System.out.println ("The event path: " + event.getPath());
+            switch (event.getType()){
+                case NodeCreated:
+                    System.out.println("ZNode criado");
+                    break;
+                case NodeDeleted:
+                    System.out.println ("ZNode removido");
+                    break;
+                case NodeDataChanged:
+                    System.out.println ("Dados do ZNode alterados");
+                    break;
+                case NodeChildrenChanged:
+                    System.out.print("Evento envolvendo os filhos");
+            }
+            registrarWatcher();
+        }
+    }
+
     public static void main(String[] args) throws IOException, InterruptedException, KeeperException {
         EleicaoDeLider eleicaoDeLider = new EleicaoDeLider();
         eleicaoDeLider.conectar();
         eleicaoDeLider.realizarCandidatura();
         eleicaoDeLider.elegerOLider();
+        eleicaoDeLider.registrarWatcher();
         eleicaoDeLider.executar();
         eleicaoDeLider.fechar();
     }
