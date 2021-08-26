@@ -8,6 +8,7 @@ import java.util.List;
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.data.Stat;
+import org.apache.zookeeper.server.watch.WatcherMode;
 
 public class EleicaoDeLider {
     private static final String HOST = "localhost";
@@ -78,6 +79,7 @@ public class EleicaoDeLider {
             //uma instância da classe TesteWatcher
             //seu método process será chamado quando um evento acontecer
             TesteWatcher watcher = new TesteWatcher();
+//            zooKeeper.addWatch(ZNODE_TESTE_WATCHER, watcher, AddWatchMode.PERSISTENT_RECURSIVE);
             Stat stat = zooKeeper.exists(ZNODE_TESTE_WATCHER, watcher);
             //ZNode existe
             if (stat != null){
@@ -100,7 +102,6 @@ public class EleicaoDeLider {
         @Override
         public void process(WatchedEvent event) {
             System.out.println(event);
-           System.out.println ("The event path: " + event.getPath());
             switch (event.getType()){
                 case NodeCreated:
                     System.out.println("ZNode criado");
