@@ -74,48 +74,71 @@ public class EleicaoDeLider {
         }
     }
 
-    public void registrarWatcher() {
+    public void registrarWatcher(){
+        TesteWatcher watcher = new TesteWatcher();
         try {
-            //uma instância da classe TesteWatcher
-            //seu método process será chamado quando um evento acontecer
-            TesteWatcher watcher = new TesteWatcher();
-//            zooKeeper.addWatch(ZNODE_TESTE_WATCHER, watcher, AddWatchMode.PERSISTENT_RECURSIVE);
-            Stat stat = zooKeeper.exists(ZNODE_TESTE_WATCHER, watcher);
-            //ZNode existe
-            if (stat != null){
-                //cuidado, se o ZNode não tiver dados o retorno é null
-                //e o construtor da classe String lança uma NPE
-                byte [] bytes = zooKeeper.getData(ZNODE_TESTE_WATCHER, watcher, stat);
-                String dados = bytes != null ? new String(bytes) : "";
-                System.out.println("Dados: " + dados);
-                //se não existirem filhos, o resultado é uma lista vazia
-                List <String> filhos = zooKeeper.getChildren(ZNODE_TESTE_WATCHER, watcher);
-                System.out.println ("Filhos: " + filhos);
-            }
-        }
-        catch (KeeperException | InterruptedException e){
-           e.printStackTrace();
+            //Eventos NodeChildrenChanged não serão enviados
+            //alterações nos filhos serão representados por NodeCreated, NodeDeleted e NodeDataChanged.
+            zooKeeper.addWatch(ZNODE_TESTE_WATCHER, watcher, AddWatchMode.PERSISTENT_RECURSIVE);
+        } catch (KeeperException | InterruptedException e) {
+            e.printStackTrace();
         }
     }
+
+//    public void registrarWatcher() {
+//        try {
+//            //uma instância da classe TesteWatcher
+//            //seu método process será chamado quando um evento acontecer
+//            TesteWatcher watcher = new TesteWatcher();
+////            zooKeeper.addWatch(ZNODE_TESTE_WATCHER, watcher, AddWatchMode.PERSISTENT_RECURSIVE);
+//            Stat stat = zooKeeper.exists(ZNODE_TESTE_WATCHER, watcher);
+//            //ZNode existe
+//            if (stat != null){
+//                //cuidado, se o ZNode não tiver dados o retorno é null
+//                //e o construtor da classe String lança uma NPE
+//                byte [] bytes = zooKeeper.getData(ZNODE_TESTE_WATCHER, watcher, stat);
+//                String dados = bytes != null ? new String(bytes) : "";
+//                System.out.println("Dados: " + dados);
+//                //se não existirem filhos, o resultado é uma lista vazia
+//                List <String> filhos = zooKeeper.getChildren(ZNODE_TESTE_WATCHER, watcher);
+//                System.out.println ("Filhos: " + filhos);
+//            }
+//        }
+//        catch (KeeperException | InterruptedException e){
+//           e.printStackTrace();
+//        }
+//    }
     //classe interna
     private class TesteWatcher implements Watcher {
         @Override
         public void process(WatchedEvent event) {
             System.out.println(event);
-            switch (event.getType()){
-                case NodeCreated:
-                    System.out.println("ZNode criado");
-                    break;
-                case NodeDeleted:
-                    System.out.println ("ZNode removido");
-                    break;
-                case NodeDataChanged:
-                    System.out.println ("Dados do ZNode alterados");
-                    break;
-                case NodeChildrenChanged:
-                    System.out.print("Evento envolvendo os filhos");
+            try{
+                switch (event.getType()){
+                    case NodeCreated:
+                        System.out.println("ZNode criado");
+                        break;
+                    case NodeDeleted:
+                        System.out.println ("ZNode removido");
+                        break;
+                    case NodeDataChanged:
+                        System.out.println ("Dados do ZNode alterados");
+                        Stat stat = zooKeeper.exists(ZNODE_TESTE_WATCHER, false);
+                        byte [] bytes = zooKeeper.getData(ZNODE_TESTE_WATCHER, false, stat);
+                        String dados = bytes != null ? new String (bytes) : "";
+                        System.out.println ("Dados: " + dados);
+                        break;
+                    //Não acontecerá mais
+                    case NodeChildrenChanged:
+                        System.out.println("Evento envolvendo os filhos");
+                        List <String> filhos = zooKeeper.getChildren(ZNODE_TESTE_WATCHER, false);
+                        System.out.println(filhos);
+                }
+            } catch (KeeperException | InterruptedException e) {
+                e.printStackTrace();
             }
-            registrarWatcher();
+            //importante!!
+            //registrarWatcher();
         }
     }
 
