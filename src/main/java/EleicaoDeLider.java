@@ -13,15 +13,37 @@ import org.apache.zookeeper.server.watch.WatcherMode;
 public class EleicaoDeLider {
     private static final String HOST = "localhost";
     private static final String PORTA = "2181";
-    private static final int TIMEOUT = 5000;
+    private static final int TIMEOUT = 15000;
     private static final String NAMESPACE_ELEICAO = "/eleicao";
     //variável que armazena o nome do ZNodeAtual
     // cada processo que executa uma instância deste programa tem o seu
     private String nomeDoZNodeDesseProcesso;
-    private ZooKeeper zooKeeper;
+    private MyZooKeeper zooKeeper;
     private static final String ZNODE_TESTE_WATCHER = "/teste_watch";
     public void fechar () throws InterruptedException{
         zooKeeper.close();
+    }
+
+    private class MyZooKeeper extends ZooKeeper{
+
+        public MyZooKeeper(String connectString, int sessionTimeout, Watcher watcher) throws IOException {
+            super(connectString, sessionTimeout, watcher);
+        }
+
+        @Override
+        public List<String> getExistWatches() {
+            return super.getExistWatches();
+        }
+
+        @Override
+        protected List<String> getDataWatches() {
+            return super.getDataWatches();
+        }
+
+        @Override
+        protected List<String> getChildWatches() {
+            return super.getChildWatches();
+        }
     }
 
     public void realizarCandidatura () throws InterruptedException, KeeperException {
@@ -48,7 +70,7 @@ public class EleicaoDeLider {
     }
 
     public void conectar () throws IOException{
-        zooKeeper = new ZooKeeper(
+        zooKeeper = new MyZooKeeper(
                 String.format("%s:%s", HOST, PORTA),
                 TIMEOUT,
                 event -> {
@@ -73,34 +95,58 @@ public class EleicaoDeLider {
             zooKeeper.wait();
         }
     }
-
-    public void registrarWatcher() {
-        try {
-            //uma instância da classe TesteWatcher
-            //seu método process será chamado quando um evento acontecer
+    String watches = "";
+    public void registrarWatcher(){
+        try{
             TesteWatcher watcher = new TesteWatcher();
-//            zooKeeper.addWatch(ZNODE_TESTE_WATCHER, watcher, AddWatchMode.PERSISTENT_RECURSIVE);
             Stat stat = zooKeeper.exists(ZNODE_TESTE_WATCHER, watcher);
-            //ZNode existe
+            watches = String.format(
+                    "E:%s, D:%s, C:%s\n",
+                    zooKeeper.getExistWatches().toString(),
+                    zooKeeper.getDataWatches().toString(),
+                    zooKeeper.getChildWatches().toString()
+            );
+            System.out.println("After exists");
+            System.out.println(watches);
             if (stat != null){
-                //cuidado, se o ZNode não tiver dados o retorno é null
-                //e o construtor da classe String lança uma NPE
                 byte [] bytes = zooKeeper.getData(ZNODE_TESTE_WATCHER, watcher, stat);
                 String dados = bytes != null ? new String(bytes) : "";
-                System.out.println("Dados: " + dados);
-                //se não existirem filhos, o resultado é uma lista vazia
-                List <String> filhos = zooKeeper.getChildren(ZNODE_TESTE_WATCHER, watcher);
-                System.out.println ("Filhos: " + filhos);
+                watches = String.format(
+                        "E:%s, D:%s, C:%s\n",
+                        zooKeeper.getExistWatches().toString(),
+                        zooKeeper.getDataWatches().toString(),
+                        zooKeeper.getChildWatches().toString()
+                );
+                System.out.println("After getData");
+                System.out.println(watches);
+                zooKeeper.getChildren(ZNODE_TESTE_WATCHER, watcher);
+                watches = String.format(
+                        "E:%s, D:%s, C:%s\n",
+                        zooKeeper.getExistWatches().toString(),
+                        zooKeeper.getDataWatches().toString(),
+                        zooKeeper.getChildWatches().toString()
+                );
+                System.out.println("After getChildren");
+                System.out.println(watches);
             }
         }
-        catch (KeeperException | InterruptedException e){
-           e.printStackTrace();
+        catch (InterruptedException | KeeperException e) {
+            e.printStackTrace();
         }
     }
+
     //classe interna
     private class TesteWatcher implements Watcher {
         @Override
         public void process(WatchedEvent event) {
+            watches = String.format(
+                    "E:%s, D:%s, C:%s\n",
+                    zooKeeper.getExistWatches().toString(),
+                    zooKeeper.getDataWatches().toString(),
+                    zooKeeper.getChildWatches().toString()
+            );
+            System.out.println("Event started");
+            System.out.println(watches);
             System.out.println(event);
             switch (event.getType()){
                 case NodeCreated:
@@ -112,9 +158,15 @@ public class EleicaoDeLider {
                 case NodeDataChanged:
                     System.out.println ("Dados do ZNode alterados");
                     break;
-                case NodeChildrenChanged:
-                    System.out.print("Evento envolvendo os filhos");
             }
+            watches = String.format(
+                    "E:%s, D:%s, C:%s\n",
+                    zooKeeper.getExistWatches().toString(),
+                    zooKeeper.getDataWatches().toString(),
+                    zooKeeper.getChildWatches().toString()
+            );
+            System.out.println("Event finished");
+            System.out.println(watches);
             registrarWatcher();
         }
     }
